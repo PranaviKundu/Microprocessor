@@ -1,0 +1,144 @@
+%macro io 4
+    ; %1 = syscall number, %2 = file descriptor, %3 = buffer, %4 = length of buffer
+	mov rax,%1          ; Move the syscall number into rax (Syscall number for IO)
+	mov rdi,%2          ; Move the file descriptor into rdi (1 for stdout, 0 for stdin)
+	mov rsi,%3          ; Move the buffer address into rsi (the source or destination of the data)
+	mov rdx,%4          ; Move the buffer length into rdx
+	syscall             ; Perform the syscall (used for I/O operations like reading/writing)
+%endmacro
+
+%macro exit 0
+    ; This macro exits the program with a status code of 0 (indicating success).
+	mov rax,60          ; Syscall number for exit (60 is the exit system call number)
+	mov rdi,0           ; Status code 0 (successful termination)
+	syscall             ; Call the syscall to exit the program
+%endmacro
+
+section .data
+    ; Data section to store messages
+	msg1 db "Write an x86/64 ALP to accept 5 hexadecimal numbers from user and store them in an array and display the accepted numbers",10
+	msg1len equ $-msg1         ; Length of msg1
+	msg2 db "Enter 5 64bit hexadecimal numbers (0-9,A-F only): ", 10
+	msg2len equ $-msg2         ; Length of msg2
+    msg3 db "5 64bit hexadecimal numbers are: ", 10
+	msg3len equ $-msg3         ; Length of msg3
+    newline db 10              ; A new line character for formatting
+    errMsg db "You entered a wrong hexadecimal number"
+    errLen equ $-errMsg        ; Length of the error message
+
+section .bss
+    ; BSS section for uninitialized variables
+	asciinum resb 17           ; Buffer to store ASCII input (16 characters for hex digits, 1 byte for null terminator)
+	hexnum resq 5              ; Reserve space for 5 64-bit hexadecimal numbers (5 * 8 bytes = 40 bytes)
+
+section .code
+    ; Code section
+	global _start
+	_start:
+        ; Print msg1 to the screen (Instruction to explain the task)
+        io 1,1,msg1,msg1len      ; Output msg1 to stdout (file descriptor 1)
+        io 1,1,msg2,msg2len      ; Output msg2 (prompt asking for hexadecimal input)
+
+        mov rcx,5                ; Set loop counter (we want to read 5 numbers)
+        mov rsi,hexnum           ; Set the starting address for storing the hexadecimal numbers
+
+    next1:
+        push rsi                 ; Save rsi register (pointer to the hexnum array)
+        push rcx                 ; Save rcx (loop counter)
+
+        io 0,0,asciinum,17      ; Read ASCII input from the user (max 16 characters + null terminator)
+        call ascii_hex64         ; Convert the ASCII input into a 64-bit hexadecimal value (store in rbx)
+
+        pop rcx                  ; Restore rcx (loop counter)
+        pop rsi                  ; Restore rsi (pointer to the hexnum array)
+
+        mov [rsi],rbx            ; Store the converted 64-bit hexadecimal number into the hexnum array
+        add rsi,8                ; Move to the next memory location (next 64-bit slot in hexnum array)
+        loop next1               ; Decrement rcx and loop back if rcx != 0
+
+        io 1,1,msg3,msg3len      ; Output msg3 (indicating that we will display the numbers)
+
+        mov rsi,hexnum           ; Set rsi back to the start of hexnum array
+        mov rcx,5                ; Set loop counter (5 numbers to display)
+
+    next2:
+        mov rbx,[rsi]            ; Load the current 64-bit value from the hexnum array into rbx
+        push rsi                 ; Save rsi (pointer to hexnum array)
+        push rcx                 ; Save rcx (loop counter)
+
+        call hex_ascii64         ; Convert the 64-bit value in rbx to its ASCII representation and store it in asciinum
+
+        pop rcx                  ; Restore rcx (loop counter)
+        pop rsi                  ; Restore rsi (pointer to hexnum array)
+
+        add rsi,8                ; Move to the next 64-bit slot in hexnum
+        loop next2               ; Decrement rcx and loop back if rcx != 0
+
+        exit                     ; Exit the program
+
+    ; ascii_hex64: This function converts ASCII input to a 64-bit hexadecimal value
+    ascii_hex64:
+        mov rsi, asciinum       ; Set rsi to the input buffer (asciinum)
+        mov rbx,0               ; Initialize rbx to 0 (will store the result)
+        mov rcx,16              ; Set loop counter to 16 (16 hexadecimal digits)
+
+    next3:
+        rol rbx,4               ; Rotate the value in rbx left by 4 bits to make space for the new hex digit
+        mov al,[rsi]            ; Move the current character from the input buffer into al
+        ; CHECKING FOR INVALID HEX
+        cmp al,29h              ; Compare if the character is less than '0' (hex '30')
+        jbe err                 ; If it's an invalid character, jump to error
+        cmp al,40h              ; Compare if the character is between '0' and '9'
+        je err                  ; If it's a non-hex character, jump to error
+        cmp al,67h              ; Compare if the character is greater than '9'
+        jge err                 ; Jump to error if invalid (beyond '9')
+        cmp al,47h              ; Compare if the character is between 'A' and 'F'
+        jge checkfurther        ; Check further if the character is valid (A-F)
+        jmp operations          ; Skip invalid characters (invalid ASCII input)
+
+    checkfurther:
+        cmp al,60h              ; Compare if the character is less than 'a' (hex '61')
+        jbe err                 ; If it's an invalid character, jump to error
+
+    operations:
+        cmp al,39h              ; Check if it's a digit ('0'-'9')
+        jbe sub30h              ; If it's a digit, subtract 30h to get the correct value
+        cmp al,46h              ; Check if it's between 'A'-'F'
+        jbe sub7h               ; If it's between A-F, subtract 7h to get the correct value
+        sub al,20h              ; Convert lower case to upper case (optional)
+    sub7h:
+        sub al,7h               ; Subtract 7 from ASCII value if between 'A' and 'F'
+
+    sub30h:
+        sub al,30h              ; Subtract 30h (convert ASCII digits '0'-'9' to their numeric values)
+
+    skip:
+        add bl,al               ; Add the converted hex digit to the lower byte of rbx
+        inc rsi                 ; Move to the next character in the input string
+        loop next3              ; Loop for 16 hex digits (each character in the input)
+    ret
+
+    ; hex_ascii64: This function converts a 64-bit value in rbx to its ASCII representation
+    hex_ascii64:
+        mov rsi,asciinum       ; Set rsi to the output buffer (asciinum)
+        mov rcx,16              ; Set loop counter to 16 (to convert 64-bit value to 16 hex digits)
+
+    next4:
+        rol rbx,4               ; Rotate the value in rbx left by 4 bits to move the next hex digit into place
+        mov al,bl               ; Move the lower byte of rbx into al
+        and al,0fh              ; Mask to get the last 4 bits (hex digit)
+        cmp al,9                ; Compare if it's less than or equal to 9
+        jbe add30h              ; If it's a valid digit (0-9), add 30h (ASCII of '0')
+        add al,7h               ; If it's a valid letter (A-F), add 7h to adjust to ASCII 'A'-'F'
+
+    add30h:
+        add al,30h              ; Convert to ASCII by adding the value of '0'
+
+        mov [rsi],al            ; Store the ASCII value in the output buffer
+        inc rsi                 ; Move to the next character in the buffer
+        loop next4              ; Loop until all 16 digits are converted
+
+        io 1,1,asciinum,16      ; Output the converted ASCII string (the hexadecimal number)
+        io 1,1,newline,1        ; Print a newline after displaying the number
+    ret
+
