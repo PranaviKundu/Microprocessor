@@ -24,14 +24,14 @@
 section .data
     msg1 db "Write an x86/64 ALP to accept 5 hexadecimal numbers from user and store them in an array and display the accepted numbers",10,'Name - Pranavi Kundu', 10 ,'Roll no - 7240',10
     msg1len equ $-msg1
-    msg2 db "Enter 5 64bit hexadecimal numbers (0-9,A-F only): ", 10
+    msg2 db "Enter 5 64-bit hexadecimal numbers (16 hex digits each, 0-9,A-F only): ", 10
     msg2len equ $-msg2
-    msg3 db "5 64bit hexadecimal numbers are: ", 10
+    msg3 db "5 64-bit hexadecimal numbers are: ", 10
     msg3len equ $-msg3
     newline db 10          ; Newline character
 
 section .bss
-    asciinum resb 17       ; Buffer to store ASCII input (16 hex digits + null terminator)
+    asciinum resb 17       ; Buffer to store ASCII input (16 hex digits + newline)
     hexnum resq 5          ; Array to store five 64-bit numbers
 
 section .text
@@ -83,7 +83,6 @@ ascii_hex64:
     mov rbx,0              ; Clear rbx (to store the converted value)
     mov rcx,16             ; Loop counter for 16 hex digits
 next3:
-    rol rbx,4              ; Shift left by 4 bits to make space for next digit
     mov al,[rsi]           ; Load a character from buffer
     cmp al,'9'             ; Check if it is a digit (0-9)
     jbe sub30h             ; If so, jump to adjust ASCII to numeric
@@ -91,7 +90,8 @@ next3:
 sub30h:
     sub al,'0'             ; Convert ASCII to numeric value
     and al,0Fh             ; Mask the lower nibble
-    add bl,al              ; Add to result
+    shl rbx,4              ; Shift left by 4 bits to make space for next digit
+    or rbx,rax             ; Add to result
     inc rsi                ; Move to next character
     loop next3             ; Repeat for all 16 characters
     ret                    ; Return
@@ -104,21 +104,22 @@ sub30h:
 ;---------------------------------------------------------------
 hex_ascii64:
     mov rsi,asciinum      ; Load buffer address
-    mov rcx,16            ; Loop counter for 16 hex digits
     mov rdx,rbx           ; Copy original number to rdx
+    mov rcx,16            ; Loop counter for 16 hex digits
+    add rsi,15            ; Move pointer to end of buffer
+    mov byte [rsi],10     ; Null terminator (new line)
+    dec rsi               ; Adjust to last character position
 next4:
-    rol rdx,4             ; Shift left to get the next highest nibble
-    mov al,dl             ; Extract the lower 4 bits
-    and al,0Fh            ; Mask to keep only relevant bits
+    mov rax,rdx           ; Copy rdx to rax
+    and rax,0Fh           ; Mask the lowest 4 bits
     cmp al,9              ; Check if the value is 0-9
     jbe add30h            ; If so, jump to add '0'
     add al,7h             ; Convert to A-F
 add30h:
     add al,'0'            ; Convert to ASCII
     mov [rsi],al          ; Store character in buffer
-    inc rsi               ; Move buffer pointer
+    shr rdx,4             ; Shift right to get the next nibble
+    dec rsi               ; Move buffer pointer backwards
     loop next4            ; Repeat for all 16 hex digits
-    io 1,1,asciinum,16    ; Print the converted hexadecimal number
-    io 1,1,newline,1      ; Print newline
+    io 1,1,asciinum,17    ; Print the converted hexadecimal number (including newline)
     ret                    ; Return
-
