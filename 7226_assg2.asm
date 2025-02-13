@@ -2,7 +2,7 @@
 ; Problem Statement: Write an x86-64 Assembly Language Program (ALP) 
 ; to accept a string from the user and display its length.
 ;
-; Author: Jatin Yadav
+; Author: Pranavi Kundu
 ; Roll No: 7226
 ;---------------------------------------------------------------
 
@@ -15,71 +15,79 @@
 %endmacro
 
 section .data
-    length db 0            ; Variable to store string length
-    msg1 db "Problem Statement: Write an x86-64 Assembly Language Program (ALP) to accept a string from the user and display its length.",10, "Author: Jatin Yadav, Roll No: 7226",10 ,"Enter the string: ",10  ; Message prompting user input
-    msg1len equ $-msg1     ; Length of msg1
-    msg2 db "Length of entered string without loop is: ",10  ; Message for direct length display
-    msg2len equ $-msg2     ; Length of msg2
-    msg3 db "Length of entered string with loop is: ",10  ; Message for computed length
-    msg3len equ $-msg3     ; Length of msg3
+    msg1 db "Problem Statement: Write an x86-64 Assembly Language Program (ALP) to accept a string from the user and display its length.",10, "Author: Pranavi Kundu, Roll No: 7240",10 ,"Enter the string: ",10  
+    msg1len equ $-msg1
+
+    msg2 db "Length of entered string (syscall result): ",10  
+    msg2len equ $-msg2
+
+    msg3 db "Length of entered string (loop count): ",10  
+    msg3len equ $-msg3
+
     newline db 10          ; Newline character
 
 section .bss
     string1 resb 30        ; Buffer to store user input string (max 30 bytes)
-    ascii_num resb 2       ; Buffer to store ASCII converted length
+    length resb 1          ; Store computed length
 
 section .text
     global _start
 
 _start:
-    io 1,1,msg1,msg1len     ; Display "Enter the string: " message
+    io 1,1,msg1,msg1len     ; Display problem statement and prompt
+
     io 0,0,string1,30       ; Read string input from user
+    mov rbx, rax            ; Store syscall result (bytes read)
 
-    dec rax                 ; Adjusting for newline character
-    mov rbx, rax            ; Store length in RBX
+    dec rbx                 ; Adjust length (ignoring newline character)
 
-    io 1,1,msg2,msg2len     ; Display message for direct length
-    call hex_ascii8         ; Convert and display length
+    io 1,1,msg2,msg2len     ; Display message for syscall-based length
+    call print_decimal      ; Print syscall-based length
 
-    mov rsi, string1        ; Load string address into RSI for iteration
+    ; Reset length for manual computation
+    mov rsi, string1        ; Load string address into RSI
+    mov rcx, 0              ; Initialize counter
 
-back:
-    mov al, [rsi]           ; Load character from string
+count_loop:
+    mov al, [rsi]           ; Load character
     cmp al, 10              ; Check for newline character
-    je skip                 ; If newline, exit loop
-    inc byte[length]        ; Increment length counter
+    je done_count           ; If newline, end loop
+    inc rcx                 ; Increment count
     inc rsi                 ; Move to next character
-    loop back               ; Repeat until end of string
+    jmp count_loop          ; Repeat
 
-skip:
-    mov bl, [length]        ; Move computed length to BL
+done_count:
+    mov [length], cl        ; Store computed length
+
     io 1,1,msg3,msg3len     ; Display message for computed length
-    call hex_ascii8         ; Convert and display length
+    movzx rbx, byte[length] ; Load length from memory
+    call print_decimal      ; Print length
 
-    mov rax, 60             ; Syscall to exit program
-    mov rdi, 1              ; Exit status
+    mov rax, 60             ; Syscall to exit
+    mov rdi, 0              ; Exit status
     syscall
 
-hex_ascii8:
-    mov rdi, ascii_num      ; Load address of ASCII buffer
-    mov rcx, 2              ; Loop counter for 2-digit hex
+;---------------------------------------------------------------
+; Function: print_decimal
+; Converts a number in RBX to ASCII decimal and prints it.
+;---------------------------------------------------------------
+print_decimal:
+    mov rsi, rsp            ; Use stack as buffer
+    sub rsi, 32             ; Move to a safe location
+    mov rcx, 0              ; Counter for digits
 
-lbl:
-    rol bl, 4               ; Rotate left by 4 bits
-    mov al, bl              ; Copy rotated value to AL
-    and al, 0FH             ; Mask lower 4 bits
-    cmp al, 9               ; Check if digit is 0-9
-    jbe add30H              ; If yes, jump to add 30H
-    add al, 7H              ; Adjust for A-F range
+convert_loop:
+    mov rdx, 0              ; Clear RDX before division
+    mov rax, rbx            ; Move number to RAX
+    mov rbx, 10             ; Divisor
+    div rbx                 ; Divide RAX by 10, quotient in RAX, remainder in RDX
+    add dl, '0'             ; Convert remainder to ASCII
+    dec rsi                 ; Move buffer pointer
+    mov [rsi], dl           ; Store ASCII character
+    inc rcx                 ; Increase digit count
+    test rax, rax           ; Check if quotient is 0
+    jnz convert_loop        ; If not, continue
 
-add30H:
-    add al, 30H             ; Convert to ASCII
-    mov [rdi], al           ; Store character in buffer
-    inc rdi                 ; Move buffer pointer
-    dec rcx                 ; Decrement loop counter
-    jnz lbl                 ; Repeat if counter > 0
-
-    io 1,1,ascii_num,2      ; Print ASCII number
+    io 1,1,rsi,rcx          ; Print the ASCII decimal number
     io 1,1,newline,1        ; Print newline
-    ret                     ; Return from function
-
+    ret                     ; Return
