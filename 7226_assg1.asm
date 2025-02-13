@@ -3,8 +3,8 @@
 ; to accept 5 hexadecimal numbers from the user, store them in an array,
 ; and display the accepted numbers.
 ;
-; Author: Jatin Yadav
-; Roll No: 7226
+; Author: Pranavi Kundu
+; Roll No: 7240
 ;---------------------------------------------------------------
 
 %macro io 4                 ; Macro for syscall-based input/output operations
@@ -22,7 +22,7 @@
 %endmacro
 
 section .data
-    msg1 db "Write an x86/64 ALP to accept 5 hexadecimal numbers from user and store them in an array and display the accepted numbers",10,'Name - Jatin Yadav', 10 ,'Roll no - 7226',10
+    msg1 db "Write an x86/64 ALP to accept 5 hexadecimal numbers from user and store them in an array and display the accepted numbers",10,'Name - Pranavi Kundu', 10 ,'Roll no - 7240',10
     msg1len equ $-msg1
     msg2 db "Enter 5 64bit hexadecimal numbers (0-9,A-F only): ", 10
     msg2len equ $-msg2
