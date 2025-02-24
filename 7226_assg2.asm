@@ -15,7 +15,7 @@
 %endmacro
 
 section .data
-    msg1 db "Problem Statement: Write an x86-64 Assembly Language Program (ALP) to accept a string from the user and display its length.",10, "Author: Pranavi Kundu, Roll No: 7240",10 ,"Enter the string: ",10  
+    msg1 db "Problem Statement: Write an x86-64 Assembly Language Program (ALP) to accept a string from the user and display its length.",10, "Name: Pranavi Kundu, Roll No: 7240",10 ,"Enter the string: ",10  
     msg1len equ $-msg1
 
     msg2 db "Length of entered string (syscall result): ",10  
@@ -38,6 +38,8 @@ _start:
 
     io 0,0,string1,30       ; Read string input from user
     mov rbx, rax            ; Store syscall result (bytes read)
+    io 1,1,string1,rbx      ; Print the user input (echo user input)
+
 
     dec rbx                 ; Adjust length (ignoring newline character)
 
