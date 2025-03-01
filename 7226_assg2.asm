@@ -29,6 +29,8 @@ section .data
 section .bss
     string1 resb 30        ; Buffer to store user input string (max 30 bytes)
     length resb 1          ; Store computed length
+                           ;resb stands for "Reserve Bytes".
+                           ;It is used in the .bss section, which is for uninitialized variables.
 
 section .text
     global _start
@@ -37,11 +39,12 @@ _start:
     io 1,1,msg1,msg1len     ; Display problem statement and prompt
 
     io 0,0,string1,30       ; Read string input from user
-    mov rbx, rax            ; Store syscall result (bytes read)
+    mov rbx, rax            ; Store syscall result (bytes read)rax will be used for other operations later (like function calls or another syscall).
+                            ;If we don’t move rax, its value might be overwritten by the next operation.
     io 1,1,string1,rbx      ; Print the user input (echo user input)
 
 
-    dec rbx                 ; Adjust length (ignoring newline character)
+    dec rbx                 ; Adjust length (ignoring newline character when user press "enter")
 
     io 1,1,msg2,msg2len     ; Display message for syscall-based length
     call print_decimal      ; Print syscall-based length
@@ -60,10 +63,13 @@ count_loop:
 
 done_count:
     mov [length], cl        ; Store computed length
+                            ;cl is the lowest 8 bits of rcx, which is enough to store small numbers (≤ 255).
 
     io 1,1,msg3,msg3len     ; Display message for computed length
-    movzx rbx, byte[length] ; Load length from memory
+    movzx rbx, byte[length] ; Load length from memory. movzx (Move with Zero-Extend) is an x86-64 instruction that moves a smaller-sized value into a larger register while filling the extra bits with zeros.
     call print_decimal      ; Print length
+                            ;[length] refers to a memory location that holds a single byte (since we defined it as resb 1).
+                            ;But the function print_decimal expects a number in a register (rbx).so we can not [length[in place of rbx
 
     mov rax, 60             ; Syscall to exit
     mov rdi, 0              ; Exit status
